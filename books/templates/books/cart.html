@@ -1,0 +1,61 @@
+{% extends 'books/base.html' %}
+
+{% block content %}
+<h2 class="mb-4">Your Shopping Cart</h2>
+
+{% if cart_items %}
+<div class="table-responsive shadow-sm rounded">
+    <table class="table table-hover align-middle mb-0 bg-white">
+        <thead class="table-dark">
+            <tr>
+                <th>Book Title</th>
+                <th>Price</th>
+                <th class="text-center">Quantity</th>
+                <th>Subtotal</th>
+                <th>Actions</th>
+            </tr>
+        </thead>
+        <tbody>
+            {% for item in cart_items %}
+            <tr>
+                <td class="fw-bold">{{ item.title }}</td>
+                <td>${{ item.price|floatformat:2 }}</td>
+                <td class="text-center" style="width: 150px;">
+                    <div class="d-flex justify-content-center align-items-center">
+                        <a href="{% url 'update_cart' item.book_id 'decrease' %}" class="btn btn-sm btn-outline-secondary">-</a>
+                        <span class="mx-3">{{ item.quantity }}</span>
+                        <a href="{% url 'update_cart' item.book_id 'increase' %}" class="btn btn-sm btn-outline-secondary">+</a>
+                    </div>
+                </td>
+                <td class="fw-bold text-success">${{ item.subtotal|floatformat:2 }}</td>
+                <td>
+                    <a href="{% url 'remove_from_cart' item.book_id %}" class="btn btn-sm btn-danger">Remove</a>
+                </td>
+            </tr>
+            {% endfor %}
+        </tbody>
+        <tfoot class="table-light">
+            <tr>
+                <td colspan="3" class="text-end fw-bold fs-5">Total Amount:</td>
+                <td class="fw-bold text-success fs-5">${{ total|floatformat:2 }}</td>
+                <td></td>
+            </tr>
+        </tfoot>
+    </table>
+</div>
+
+<div class="d-flex justify-content-between mt-4 mb-5">
+    <a href="{% url 'book_list' %}" class="btn btn-outline-primary">Continue Shopping</a>
+    <div>
+        <a href="{% url 'clear_cart' %}" class="btn btn-outline-danger me-2">Clear Cart</a>
+        <button class="btn btn-success px-5">Checkout</button>
+    </div>
+</div>
+{% else %}
+<div class="alert alert-info text-center p-5 shadow-sm bg-white">
+    <h4 class="mb-3">Your cart is empty!</h4>
+    <p class="mb-4">Looks like you haven't added anything to your cart yet.</p>
+    <a href="{% url 'book_list' %}" class="btn btn-primary btn-lg">Browse Books</a>
+</div>
+{% endif %}
+{% endblock content %}
