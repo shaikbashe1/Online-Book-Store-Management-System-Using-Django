@@ -1,0 +1,14 @@
+{
+    "builds": [
+        {
+            "src": "online_book_store/wsgi.py",
+            "use": "@vercel/python"
+        }
+    ],
+    "routes": [
+        {
+            "src": "/(.*)",
+            "dest": "online_book_store/wsgi.py"
+        }
+    ]
+}
