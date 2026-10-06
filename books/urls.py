@@ -12,4 +12,9 @@ urlpatterns = [
     path('update-cart/<int:book_id>/<str:action>/', views.update_cart, name='update_cart'),
     path('remove-from-cart/<int:book_id>/', views.remove_from_cart, name='remove_from_cart'),
     path('clear-cart/', views.clear_cart, name='clear_cart'),
+    
+    # Auth URLs
+    path('login/', views.login_user, name='login'),
+    path('logout/', views.logout_user, name='logout'),
+    path('register/', views.register_user, name='register'),
 ]
