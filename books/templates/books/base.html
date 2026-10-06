@@ -48,10 +48,10 @@
                             <span class="badge bg-danger">{{ request.session.cart|length }}</span>
                         </a>
                     </li>
-                    {% if user.is_authenticated %}
+                    {% if firebase_user %}
                         <li class="nav-item dropdown">
                             <a class="nav-link dropdown-toggle" href="#" id="userMenu" role="button" data-bs-toggle="dropdown">
-                                Hi, {{ user.username }}
+                                Hi, {{ firebase_user }}
                             </a>
                             <ul class="dropdown-menu dropdown-menu-end">
                                 {% if user.is_staff %}

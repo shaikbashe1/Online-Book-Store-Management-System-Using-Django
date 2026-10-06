@@ -15,7 +15,7 @@
     <div class="col">
         <div class="card h-100 shadow-sm">
             {% if book.image %}
-            <img src="{{ book.image.url }}" class="card-img-top" alt="{{ book.title }}" style="height: 250px; object-fit: cover;">
+            <img src="{{ book.image_url }}" class="card-img-top" alt="{{ book.title }}" style="height: 250px; object-fit: cover;">
             {% else %}
             <div class="bg-secondary text-white d-flex align-items-center justify-content-center" style="height: 250px;">
                 <span>No Image</span>

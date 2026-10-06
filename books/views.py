@@ -1,149 +1,136 @@
-from django.shortcuts import render, get_object_or_404, redirect
+from django.shortcuts import render, redirect
 from django.contrib import messages
-from django.contrib.auth import authenticate, login, logout
-from django.contrib.auth.forms import UserCreationForm, AuthenticationForm
-from .models import Book, Category
+from .firebase_client import db, bucket
+
+class CategoryObj:
+    def __init__(self, name):
+        self.name = name
+        self.id = name
+
+class BookObj:
+    def __init__(self, doc_id, data):
+        self.id = doc_id
+        self.title = data.get('title', '')
+        self.author = data.get('author', '')
+        self.price = float(data.get('price', 0.0))
+        self.category = CategoryObj(data.get('category', 'Unknown'))
+        self.description = data.get('description', '')
+        self.image_url = data.get('image_url', '')
+        self.stock = int(data.get('stock', 0))
+
+def get_all_books():
+    docs = db.collection('books').stream()
+    return [BookObj(doc.id, doc.to_dict()) for doc in docs]
 
 def home(request):
-    books = Book.objects.all()[:4] # Display top 4 books
+    books = get_all_books()[:4]
     return render(request, 'books/home.html', {'books': books})
 
 def book_list(request):
-    books = Book.objects.all()
+    books = get_all_books()
     return render(request, 'books/book_list.html', {'books': books})
 
 def book_detail(request, book_id):
-    book = get_object_or_404(Book, id=book_id)
+    doc = db.collection('books').document(book_id).get()
+    if not doc.exists: return redirect('home')
+    book = BookObj(doc.id, doc.to_dict())
     return render(request, 'books/book_detail.html', {'book': book})
 
 def category_books(request, category_id):
-    category = get_object_or_404(Category, id=category_id)
-    books = Book.objects.filter(category=category)
-    return render(request, 'books/book_list.html', {'books': books, 'current_category': category})
+    docs = db.collection('books').where('category', '==', category_id).stream()
+    books = [BookObj(doc.id, doc.to_dict()) for doc in docs]
+    return render(request, 'books/book_list.html', {'books': books, 'current_category': CategoryObj(category_id)})
 
 def search(request):
-    query = request.GET.get('q')
+    query = request.GET.get('q', '').lower()
     books = []
     if query:
-        books = Book.objects.filter(title__icontains=query) | \
-                Book.objects.filter(author__icontains=query) | \
-                Book.objects.filter(category__name__icontains=query)
-        books = books.distinct()
+        for b in get_all_books():
+            if query in b.title.lower() or query in b.author.lower() or query in b.category.name.lower():
+                books.append(b)
     return render(request, 'books/search.html', {'books': books, 'query': query})
 
-# --- Shopping Cart Logic ---
-
 def get_cart(request):
-    if 'cart' not in request.session:
-        request.session['cart'] = {}
+    if 'cart' not in request.session: request.session['cart'] = {}
     return request.session['cart']
 
 def add_to_cart(request, book_id):
     cart = get_cart(request)
-    book = get_object_or_404(Book, id=book_id)
-    str_id = str(book_id)
+    doc = db.collection('books').document(book_id).get()
+    if not doc.exists: return redirect('cart')
+    book = BookObj(doc.id, doc.to_dict())
     
-    if str_id in cart:
-        if cart[str_id]['quantity'] < book.stock:
-            cart[str_id]['quantity'] += 1
-            messages.success(request, f"Increased quantity of '{book.title}' in your cart.")
-        else:
-            messages.error(request, f"Sorry, only {book.stock} units of '{book.title}' available in stock.")
-    else:
-        if book.stock > 0:
-            cart[str_id] = {
-                'title': book.title,
-                'price': str(book.price),
-                'quantity': 1,
-            }
-            messages.success(request, f"'{book.title}' added to your cart.")
-        else:
-            messages.error(request, f"Sorry, '{book.title}' is out of stock.")
-    
+    if book_id in cart:
+        if cart[book_id]['quantity'] < book.stock:
+            cart[book_id]['quantity'] += 1
+            messages.success(request, f"Increased quantity of '{book.title}'.")
+        else: messages.error(request, "Not enough stock.")
+    elif book.stock > 0:
+        cart[book_id] = {'title': book.title, 'price': float(book.price), 'quantity': 1}
+        messages.success(request, f"'{book.title}' added to cart.")
     request.session.modified = True
     return redirect('cart')
 
 def update_cart(request, book_id, action):
     cart = get_cart(request)
-    str_id = str(book_id)
-    book = get_object_or_404(Book, id=book_id)
+    doc = db.collection('books').document(book_id).get()
+    if not doc.exists or book_id not in cart: return redirect('cart')
+    book = BookObj(doc.id, doc.to_dict())
     
-    if str_id in cart:
-        if action == 'increase':
-            if cart[str_id]['quantity'] < book.stock:
-                cart[str_id]['quantity'] += 1
-            else:
-                messages.error(request, f"Sorry, only {book.stock} units of '{book.title}' available in stock.")
-        elif action == 'decrease':
-            if cart[str_id]['quantity'] > 1:
-                cart[str_id]['quantity'] -= 1
-            else:
-                del cart[str_id]
-                messages.success(request, f"'{book.title}' removed from cart.")
-        request.session.modified = True
+    if action == 'increase' and cart[book_id]['quantity'] < book.stock:
+        cart[book_id]['quantity'] += 1
+    elif action == 'decrease':
+        if cart[book_id]['quantity'] > 1: cart[book_id]['quantity'] -= 1
+        else: del cart[book_id]
+    request.session.modified = True
     return redirect('cart')
 
 def remove_from_cart(request, book_id):
     cart = get_cart(request)
-    str_id = str(book_id)
-    if str_id in cart:
-        title = cart[str_id]['title']
-        del cart[str_id]
+    if book_id in cart:
+        del cart[book_id]
         request.session.modified = True
-        messages.success(request, f"'{title}' removed from cart.")
     return redirect('cart')
 
 def clear_cart(request):
-    if 'cart' in request.session:
-        del request.session['cart']
-        messages.success(request, "Cart cleared successfully.")
+    if 'cart' in request.session: del request.session['cart']
     return redirect('cart')
 
 def cart(request):
     cart = get_cart(request)
     cart_items = []
     total = 0
-    for str_id, item in cart.items():
-        subtotal = float(item['price']) * item['quantity']
-        total += subtotal
-        cart_items.append({
-            'book_id': str_id,
-            'title': item['title'],
-            'price': float(item['price']),
-            'quantity': item['quantity'],
-            'subtotal': subtotal
-        })
+    for b_id, item in cart.items():
+        sub = float(item['price']) * item['quantity']
+        total += sub
+        cart_items.append({'book_id': b_id, 'title': item['title'], 'price': item['price'], 'quantity': item['quantity'], 'subtotal': sub})
     return render(request, 'books/cart.html', {'cart_items': cart_items, 'total': total})
-
-
-# --- Authentication Logic ---
 
 def register_user(request):
     if request.method == 'POST':
-        form = UserCreationForm(request.POST)
-        if form.is_valid():
-            form.save()
-            messages.success(request, "Registration successful! You can now log in.")
+        u = request.POST.get('username')
+        p = request.POST.get('password')
+        if db.collection('users').document(u).get().exists:
+            messages.error(request, "Username taken.")
+        else:
+            db.collection('users').document(u).set({'username': u, 'password': p})
+            messages.success(request, "Registration successful!")
             return redirect('login')
-    else:
-        form = UserCreationForm()
-    return render(request, 'books/register.html', {'form': form})
+    return render(request, 'books/register.html')
 
 def login_user(request):
     if request.method == 'POST':
-        form = AuthenticationForm(request, data=request.POST)
-        if form.is_valid():
-            user = form.get_user()
-            login(request, user)
-            messages.success(request, f"Welcome back, {user.username}!")
+        u = request.POST.get('username')
+        p = request.POST.get('password')
+        doc = db.collection('users').document(u).get()
+        if doc.exists and doc.to_dict().get('password') == p:
+            request.session['firebase_user'] = u
+            messages.success(request, f"Welcome, {u}!")
             return redirect('home')
-        else:
-            messages.error(request, "Invalid username or password.")
-    else:
-        form = AuthenticationForm()
-    return render(request, 'books/login.html', {'form': form})
+        messages.error(request, "Invalid credentials.")
+    return render(request, 'books/login.html')
 
 def logout_user(request):
-    logout(request)
-    messages.success(request, "You have been logged out.")
+    if 'firebase_user' in request.session: del request.session['firebase_user']
+    messages.success(request, "Logged out.")
     return redirect('home')

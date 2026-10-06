@@ -13,7 +13,7 @@
 <div class="row mt-4">
     <div class="col-md-4 mb-4">
         {% if book.image %}
-            <img src="{{ book.image.url }}" class="img-fluid rounded shadow" alt="{{ book.title }}">
+            <img src="{{ book.image_url }}" class="img-fluid rounded shadow" alt="{{ book.title }}">
         {% else %}
             <div class="bg-secondary text-white d-flex align-items-center justify-content-center rounded shadow" style="height: 400px;">
                 <span>No Image Available</span>

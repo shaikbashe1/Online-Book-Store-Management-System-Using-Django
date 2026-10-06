@@ -3,20 +3,18 @@
 <div class="row justify-content-center">
     <div class="col-md-5 mt-5">
         <div class="card shadow">
-            <div class="card-header bg-success text-white text-center py-3">
-                <h4 class="mb-0">Welcome Back</h4>
-            </div>
+            <div class="card-header bg-success text-white text-center py-3"><h4 class="mb-0">Login</h4></div>
             <div class="card-body p-4">
                 <form method="POST">
                     {% csrf_token %}
-                    {{ form.as_p }}
+                    <label>Username</label>
+                    <input type="text" name="username" class="form-control mb-3" required>
+                    <label>Password</label>
+                    <input type="password" name="password" class="form-control mb-3" required>
                     <button type="submit" class="btn btn-success w-100 mt-2">Log In</button>
                 </form>
-            </div>
-            <div class="card-footer text-center py-3">
-                Don't have an account? <a href="{% url 'register' %}">Register here</a>
             </div>
         </div>
     </div>
 </div>
-{% endblock content %}
+{% endblock %}
